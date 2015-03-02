@@ -2,16 +2,16 @@ import lejos.utility.Matrix;
 
 
 public class VisualServoRobot {
-	
-	
+
 	private TrackerReader tracker;
 	private Robot robot;
 	
-	private double maxGlobalIterations = 5.;
+	private double maxGlobalIterations = 1.;
 	private double maxLocalIterations = 30.;
 	private double minError = 20;
 	private int deltaAngle = 20;
 	private double gain = 1;
+	private double alpha = 0.1;
 	
 	private Matrix mdf = null;
 	public double x = 0;
@@ -118,27 +118,50 @@ public class VisualServoRobot {
 	
 	// desired position (pixels), current angles.
 	public double[] inverseNewton(double posX, double posY, double a1, double a2, int iteration){
+		
+		double[][] f= new double[][]{{tracker.x},{tracker.y}};
 		double[][] dx = new double[][]{{a1},{a2}};
+		double[][] dy = new double[][]{{0},{0}};
 		double[][] y = new double[][]{{posX},{posY}};
-		Matrix mdx = new Matrix(dx);
+		Matrix mdx = new Matrix(dx); //dQ
+		Matrix mdy = new Matrix(dy); //dS
 		Matrix my = new Matrix(y);
+		
 		double er=-1;
 		double error = Double.MAX_VALUE;
 		int n=1;
 		while(error>minError){
-			a1=mdx.get(0, 0);
-			a2=mdx.get(1, 0);
-			robot.rotateToMotorA((int)a1);
-			robot.rotateToMotorB((int)a2);
+			double oldA1=a1;
+			double oldA2=a2;
+			double oldX=f[0][0];
+			double oldY=f[0][1];
 			
-			double[][] f= new double[][]{{tracker.x},{tracker.y}};
+			//double[][] f= new double[][]{{tracker.x},{tracker.y}};
 			Matrix mf = new Matrix(f);
-			
-			Matrix minv=mdf.inverse();
-			Matrix merr=my.minus(mf);
-			Matrix minverr=minv.times(merr);
+			Matrix minv = mdf.inverse();
+			Matrix merr = my.minus(mf); //this is error
+			Matrix minverr = minv.times(merr);
 			Matrix mgain = minverr.times(gain);
-			mdx.plusEquals(mgain);
+			mdx.plusEquals(mgain); //dQ
+			
+			a1=mdx.get(0, 0); 
+			a2=mdx.get(1, 0);
+			robot.rotateMotorA((int)a1);
+			robot.rotateMotorB((int)a2);
+			
+			dy = new double[][]{{tracker.x-oldX},{tracker.y-oldY}};
+			mdy = new Matrix(dy);
+			
+			Matrix mJacTimedQ=mdf.times(mdx);
+			Matrix mdS_Minus_JdQ=mdy.minus(mJacTimedQ);
+			Matrix mTransDX = mdx.transpose();
+			Matrix mNumerator = mdS_Minus_JdQ.times(mTransDX);
+			Matrix mDenominator = mdx.times(mTransDX);
+			Matrix mInvDenominator = mDenominator.inverse();
+			Matrix mDivision = mNumerator.times(mInvDenominator);
+			Matrix mdJac = mDivision.times(alpha);
+			
+			mdf.plusEquals(mdJac); //here update the jacobian....
 			
 			error = Math.hypot(tracker.x-posX, tracker.y-posY);
 			System.out.println("Error "+ error);
