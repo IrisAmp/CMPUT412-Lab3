@@ -3,6 +3,7 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 
 import lejos.remote.ev3.RMIRegulatedMotor;
+import lejos.remote.ev3.RMISampleProvider;
 import lejos.remote.ev3.RemoteEV3;
 
 public class Robot {
@@ -12,9 +13,10 @@ public class Robot {
     	protected RemoteEV3 robot;
     	protected RMIRegulatedMotor motorA;
     	protected RMIRegulatedMotor motorB;
+    	protected RMISampleProvider sensorA;
     	
-    	public Robot() throws RemoteException, MalformedURLException, NotBoundException {
-
+    	public Robot() throws RemoteException, MalformedURLException, NotBoundException 
+    	{
     		System.out.println("Connecting to EV3...");
     		robot = new RemoteEV3(USB_ADDR);    		
     		System.out.println("EV3 connected.");

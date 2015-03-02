@@ -4,14 +4,12 @@ import lejos.utility.Matrix;
 public class VisualServoRobot {
 	
 	
-	
-	
 	private TrackerReader tracker;
 	private Robot robot;
 	
 	private double maxGlobalIterations = 5.;
 	private double maxLocalIterations = 30.;
-	private double minError=10;
+	private double minError = 20;
 	private int deltaAngle = 20;
 	private double gain = 1;
 	
@@ -23,14 +21,17 @@ public class VisualServoRobot {
 	//increase the performance...
 	double[] globalErrors = null;
 	
-	public static void main(String [] args){
+	public static void main(String [] args)
+	{
 		VisualServoRobot vsr = new VisualServoRobot();
-		try{
+		try
+		{
 			vsr.getInitialPosition();
 			vsr.calculateJacobian(0,0);
 			vsr.inverseNewtonWithInitialGuess(vsr.targetX,vsr.targetY);
 			//vsr.inverseNewton(vsr.targetX,vsr.targetY,0,0);
-		}catch(Exception e){}
+		}
+		catch(Exception e){}
 		vsr.disconnect();
 	}
 	

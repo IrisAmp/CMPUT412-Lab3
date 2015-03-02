@@ -11,6 +11,10 @@ public class TrackerReader{
 	
     public volatile double x;
     public volatile double y;
+    public volatile double basex;
+    public volatile double basey;
+    public volatile double obstx;
+    public volatile double obsty;
     public volatile double a;
     public volatile double theta;
     public volatile double targetx=320;
