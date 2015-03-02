@@ -9,8 +9,10 @@ import cv
 CAM_WINDOW = "CamShiftTracker"
 HISTOGRAM_WINDOW = "Histogram"
 STOP_CRITERIA = (cv.CV_TERMCRIT_EPS | cv.CV_TERMCRIT_ITER, 10, 1)
-TARGET_ELLIPSE_COLOR = (255, 255, 0)
-CENTROID_COLOR = (255, 0, 0)
+TARGET_ELLIPSE_COLOR = (0, 255, 0)
+CENTROID_COLOR = (255, 255, 255)
+BASE_COLOR = (0, 0, 255)
+OBST_COLOR = (255, 0, 0)
 
 def is_rect_nonzero(r):
     (_, _, w, h) = r
@@ -60,19 +62,36 @@ class CamShiftTracker:
         self.backproject_mode = False
         self.message = {}
 
+	self.inputMode = "ee"
+
+	self.base_center_x = 0
+	self.base_center_y = 0
+	self.obst_center_x = 0
+	self.obst_center_y = 0
+
         self.count = 0
 
         print("Keys:\n"
             "    ESC - quit the program\n"
             "    b - switch to/from backprojection view\n"
+            "    z - switch targeting to end effector\n"
+            "    x - switch targeting to base\n"
+            "    c - switch targeting to obstacle\n"
             "To initialize tracking, drag across the object with the mouse\n")
 
     def on_mouse(self, event, x, y, *args):
         if event in [cv.CV_EVENT_LBUTTONDOWN, cv.CV_EVENT_LBUTTONUP, cv.CV_EVENT_MOUSEMOVE]:
             self.left_mouse_click(event, x, y)
         elif event in [cv.CV_EVENT_RBUTTONUP]:
-            self.target_x = x
-            self.target_y = y
+            if (self.inputMode == "ee"):
+                self.target_x = x
+                self.target_y = y
+            elif (self.inputMode == "base"):
+                self.base_center_x = x
+                self.base_center_y = y
+            elif (self.inputMode == "obst"):
+                self.obst_center_x = x
+                self.obst_center_y = y
 
     def left_mouse_click(self, event, x, y):
         if event == cv.CV_EVENT_LBUTTONDOWN:
@@ -110,7 +129,7 @@ class CamShiftTracker:
                 self.draw_mouse_drag_area(frame)
                 self.recompute_histogram(hist)
             elif self.track_window and is_rect_nonzero(self.track_window):
-                cv.EllipseBox(frame, track_box, cv.CV_RGB(255, 0, 0), 3, cv.CV_AA, 0)
+                cv.EllipseBox(frame, track_box, cv.CV_RGB(0, 255, 255), 3, cv.CV_AA, 0)
 
             if track_box:
                 self.update_message(track_box)
@@ -166,6 +185,12 @@ class CamShiftTracker:
             self.target_y += 5
         elif c == ord("d"):
             self.target_x += 5
+        elif c == ord("z"):
+            self.inputMode = "ee"
+        elif c == ord("x"):
+            self.inputMode = "base"
+        elif c == ord("c"):
+            self.inputMode = "obst"
 
     def draw_target(self, frame, track_box):
         if track_box:
@@ -183,9 +208,21 @@ class CamShiftTracker:
         target_ellipse = ((self.target_x, self.target_y), (75, 75), 0.0)
         cv.EllipseBox(frame, target_ellipse, cv.CV_RGB(*TARGET_ELLIPSE_COLOR), 5, cv.CV_AA, 0 )
 
+        cv.Circle(frame, (self.base_center_x, self.base_center_y), 5, CENTROID_COLOR, 2)
+        base_ellipse = ((self.base_center_x, self.base_center_y), (75, 75), 0.0)
+        cv.EllipseBox(frame, base_ellipse, cv.CV_RGB(*BASE_COLOR), 5, cv.CV_AA, 0 )
+
+        cv.Circle(frame, (self.obst_center_x, self.obst_center_y), 5, CENTROID_COLOR, 2)
+        obst_ellipse = ((self.obst_center_x, self.obst_center_y), (75, 75), 0.0)
+        cv.EllipseBox(frame, obst_ellipse, cv.CV_RGB(*OBST_COLOR), 5, cv.CV_AA, 0 )
+
     def update_message(self, track_box):
         self.message['x'] = float(self.tracker_center_x)
         self.message['y'] = float(self.tracker_center_y)
+        self.message['basex'] = float(self.base_center_x)
+        self.message['basey'] = float(self.base_center_y)
+        self.message['obstx'] = float(self.obst_center_x)
+        self.message['obsty'] = float(self.obst_center_y)
         self.message['a'] = float(track_box[1][0]) * float(track_box[1][1])
         self.message['theta'] = float(track_box[2])
         self.message['targetx'] = float(self.target_x)

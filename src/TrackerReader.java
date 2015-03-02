@@ -7,18 +7,18 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-public class TrackerReader{
-	
+public class TrackerReader
+{	
     public volatile double x;
     public volatile double y;
-    public volatile double basex;
-    public volatile double basey;
-    public volatile double obstx;
-    public volatile double obsty;
     public volatile double a;
     public volatile double theta;
     public volatile double targetx=320;
     public volatile double targety;
+    public volatile double basex;
+    public volatile double basey;
+    public volatile double obstx;
+    public volatile double obsty;
     public volatile boolean isConnected = false;
     
     private ServerSocket s = null;
@@ -89,6 +89,10 @@ public class TrackerReader{
     							theta = (Double) jsonObject.get("theta");
     							targetx = (Double) jsonObject.get("targetx");
     							targety = (Double) jsonObject.get("targety");
+    							basex = (Double) jsonObject.get("basex");
+    							basey = (Double) jsonObject.get("basey");
+    							obstx = (Double) jsonObject.get("obstx");
+    							obsty = (Double) jsonObject.get("obsty");
     						}catch (ParseException e) {
     							e.printStackTrace();
     						}
