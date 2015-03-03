@@ -6,12 +6,12 @@ public class VisualServoRobot {
 	private TrackerReader tracker;
 	private Robot robot;
 	
-	private double maxGlobalIterations = 1.;
-	private double maxLocalIterations = 30.;
+	private double maxGlobalIterations = 5.;
+	private double maxLocalIterations = 10.;
 	private double minError = 20;
 	private int deltaAngle = 20;
 	private double gain = 1;
-	private double alpha = 0.1;
+	private double alpha = 1/maxGlobalIterations;
 	
 	private Matrix mdf = null;
 	public double x = 0;
@@ -31,7 +31,7 @@ public class VisualServoRobot {
 			vsr.inverseNewtonWithInitialGuess(vsr.targetX,vsr.targetY);
 			//vsr.inverseNewton(vsr.targetX,vsr.targetY,0,0);
 		}
-		catch(Exception e){}
+		catch(Exception e){e.printStackTrace();}
 		vsr.disconnect();
 	}
 	
@@ -44,13 +44,6 @@ public class VisualServoRobot {
 		}
 		tracker = new TrackerReader();
 		tracker.launchService(); //locking, until it's tracking an object
-	}
-	
-	
-	
-	public void move(){
-		robot.rotateMotorA(-400);
-		robot.rotateMotorB(400);
 	}
 	
 	public void disconnect(){
@@ -93,22 +86,11 @@ public class VisualServoRobot {
 		double difX=(posX-x)/maxGlobalIterations;
 		double difY=(posY-y)/maxGlobalIterations;
 		
-		globalErrors = new double[(int)maxGlobalIterations];
 		for (int n=1;n<maxGlobalIterations+1;n++){
-			globalErrors[n-1]=Math.hypot(difX*n+x - posX,difY*n+y - posY);
-			System.out.println(n+".  "+globalErrors[n-1]);
-		}
-		
-		
-		for (int n=1;n<maxGlobalIterations+1;n++){
-			System.err.println("ITERACION "+n);
+			System.err.println("LOCAL POINT: "+n);
 			dA=inverseNewton(difX*n+x,difY*n+y,dA[0],dA[1], n);
-			if(n<maxGlobalIterations)
-				calculateJacobian(dA[0],dA[1]);
-			if(dA[2]>0)
-				n=(int)dA[2];
 		}
-		
+		System.err.println("TARGET REACHED!");
 		try {
 			Thread.sleep(5000);
 		} catch (InterruptedException e) {
@@ -126,61 +108,49 @@ public class VisualServoRobot {
 		Matrix mdx = new Matrix(dx); //dQ
 		Matrix mdy = new Matrix(dy); //dS
 		Matrix my = new Matrix(y);
-		
 		double er=-1;
 		double error = Double.MAX_VALUE;
 		int n=1;
 		while(error>minError){
-			double oldA1=a1;
-			double oldA2=a2;
 			double oldX=f[0][0];
-			double oldY=f[0][1];
+			double oldY=f[1][0];
 			
-			//double[][] f= new double[][]{{tracker.x},{tracker.y}};
 			Matrix mf = new Matrix(f);
 			Matrix minv = mdf.inverse();
 			Matrix merr = my.minus(mf); //this is error
 			Matrix minverr = minv.times(merr);
-			Matrix mgain = minverr.times(gain);
-			mdx.plusEquals(mgain); //dQ
+			mdx = minverr.times(gain);
 			
-			a1=mdx.get(0, 0); 
+			a1=mdx.get(0, 0);
 			a2=mdx.get(1, 0);
 			robot.rotateMotorA((int)a1);
 			robot.rotateMotorB((int)a2);
-			
-			dy = new double[][]{{tracker.x-oldX},{tracker.y-oldY}};
+			try
+			{
+				Thread.sleep(100);
+			} catch (InterruptedException e1)
+			{
+				e1.printStackTrace();
+			}
+			f = new double[][]{{tracker.x},{tracker.y}};
+			dy = new double[][]{{f[0][0]-oldX},{f[1][0]-oldY}};
 			mdy = new Matrix(dy);
 			
 			Matrix mJacTimedQ=mdf.times(mdx);
 			Matrix mdS_Minus_JdQ=mdy.minus(mJacTimedQ);
 			Matrix mTransDX = mdx.transpose();
 			Matrix mNumerator = mdS_Minus_JdQ.times(mTransDX);
-			Matrix mDenominator = mdx.times(mTransDX);
-			Matrix mInvDenominator = mDenominator.inverse();
-			Matrix mDivision = mNumerator.times(mInvDenominator);
+			Matrix mDenominator = mTransDX.times(mdx);
+			Matrix mDivision = mNumerator.times(1/mDenominator.get(0, 0));
 			Matrix mdJac = mDivision.times(alpha);
-			
 			mdf.plusEquals(mdJac); //here update the jacobian....
 			
 			error = Math.hypot(tracker.x-posX, tracker.y-posY);
 			System.out.println("Error "+ error);
-			n++;
-			
-			for (int e=iteration;e<maxGlobalIterations;e++){
-				double globalError = Math.hypot(tracker.x-targetX, tracker.y-targetY);
-				if(globalError<globalErrors[e]){
-					System.out.println("Error jump: "+globalError);
-					er=e+1;
-				}
-			}
+			System.out.println("["+mdf.get(0, 0)+" "+mdf.get(0, 1));
+			System.out.println(mdf.get(1, 0)+" "+mdf.get(1, 1)+"]");
 			if(n>maxLocalIterations)
 				break;
-			// still has some issues with some areas...
-			if(er>0){
-				System.err.println("SHORTCUT FOUND! :) , jumping to global iteration:"+(er+1));
-				break;
-			}
 		}
 		
 		a1 = mdx.get(0, 0);
