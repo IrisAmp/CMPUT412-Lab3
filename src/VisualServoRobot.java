@@ -6,12 +6,15 @@ public class VisualServoRobot {
 	private TrackerReader tracker;
 	private Robot robot;
 	
-	private double maxGlobalIterations = 5.;
-	private double maxLocalIterations = 10.;
+	private double maxLocalIterations = 100.;
 	private double minError = 20;
-	private int deltaAngle = 20;
 	private double gain = 1;
-	private double alpha = 1/maxGlobalIterations;
+	private int deltaAngle = 20;
+	double error = Double.MAX_VALUE;
+	
+	private double maxLocalPoints;
+	private double alpha;
+	
 	
 	private Matrix mdf = null;
 	public double x = 0;
@@ -60,7 +63,9 @@ public class VisualServoRobot {
 		y=tracker.y;
 		targetX=tracker.targetx;
 		targetY=tracker.targety;
-		System.out.println("x="+x+"    y="+y);
+		maxLocalPoints = (int)(Math.hypot(targetX-x, targetY-y)/30) + 1;
+		alpha = 1/(5*maxLocalPoints);
+		System.err.println("Creating "+maxLocalPoints+" local targets");
 	}
 	
 	
@@ -83,14 +88,17 @@ public class VisualServoRobot {
 	
 	public void inverseNewtonWithInitialGuess(double posX,double posY){
 		double[] dA = {0.,0.};
-		double difX=(posX-x)/maxGlobalIterations;
-		double difY=(posY-y)/maxGlobalIterations;
+		double difX=(posX-x)/maxLocalPoints;
+		double difY=(posY-y)/maxLocalPoints;
 		
-		for (int n=1;n<maxGlobalIterations+1;n++){
-			System.err.println("LOCAL POINT: "+n);
+		for (int n=1;n<maxLocalPoints+1;n++){
+			System.err.println("LOCAL POINT: "+n+" out of "+(int)maxLocalPoints);
 			dA=inverseNewton(difX*n+x,difY*n+y,dA[0],dA[1], n);
+			if(!tracker.isConnected) //tracker is disconnected or lost
+				break;
 		}
-		System.err.println("TARGET REACHED!");
+		if(tracker.isConnected)
+			System.err.println("TARGET REACHED!!! with error: "+(int)error+" pixels, max error allowed: "+minError);
 		try {
 			Thread.sleep(5000);
 		} catch (InterruptedException e) {
@@ -109,7 +117,7 @@ public class VisualServoRobot {
 		Matrix mdy = new Matrix(dy); //dS
 		Matrix my = new Matrix(y);
 		double er=-1;
-		double error = Double.MAX_VALUE;
+		error = Double.MAX_VALUE;
 		int n=1;
 		while(error>minError){
 			double oldX=f[0][0];
@@ -150,6 +158,8 @@ public class VisualServoRobot {
 			System.out.println("["+mdf.get(0, 0)+" "+mdf.get(0, 1));
 			System.out.println(mdf.get(1, 0)+" "+mdf.get(1, 1)+"]");
 			if(n>maxLocalIterations)
+				break;
+			if(!tracker.isConnected) //tracker is disconnected or lost
 				break;
 		}
 		

@@ -95,6 +95,8 @@ public class TrackerReader
     							obsty = (Double) jsonObject.get("obsty");
     						}catch (ParseException e) {
     							e.printStackTrace();
+    							System.out.println("TRACKER LOST!! Discconecting...");
+    							isConnected = false;
     						}
     						if(!isConnected)
     							break;
