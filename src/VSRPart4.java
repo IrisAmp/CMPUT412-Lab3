@@ -1,7 +1,7 @@
 import lejos.utility.Matrix;
 
 
-public class VisualServoRobot {
+public class VSRPart4 {
 
 	private TrackerReader tracker;
 	private Robot robot;
@@ -26,7 +26,7 @@ public class VisualServoRobot {
 	
 	public static void main(String [] args)
 	{
-		VisualServoRobot vsr = new VisualServoRobot();
+		VSRPart4 vsr = new VSRPart4();
 		try
 		{
 			vsr.getInitialPosition();
@@ -39,7 +39,7 @@ public class VisualServoRobot {
 	}
 	
 	
-	public VisualServoRobot(){
+	public VSRPart4(){
 		try{ robot = new Robot();
 		}catch(Exception e){
 			System.err.println("Couldn't connect to the EV3: " + e.getMessage());
