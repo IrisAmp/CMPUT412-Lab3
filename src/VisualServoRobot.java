@@ -8,19 +8,18 @@ public class VisualServoRobot {
 	
 	private double maxLocalIterations = 100.;
 	private double minError = 20;
-	private double gain = 1;
+	private double gain = 0.2; //0.1-0.5
 	private int deltaAngle = 20;
 	double error = Double.MAX_VALUE;
 	
-	private double maxLocalPoints;
-	private double alpha;
-	
+	private double maxLocalPoints = 1;
+	private double alpha = 0.2;//0.1-0.5
 	
 	private Matrix mdf = null;
-	public double x = 0;
-	public double y = 0;
-	public double targetX = 0;
-	public double targetY = 0;
+//	public double x = 0;
+//	public double y = 0;
+//	public double targetX = 0;
+//	public double targetY = 0;
 	//increase the performance...
 	double[] globalErrors = null;
 	
@@ -31,7 +30,7 @@ public class VisualServoRobot {
 		{
 			vsr.getInitialPosition();
 			vsr.calculateJacobian(0,0);
-			vsr.inverseNewtonWithInitialGuess(vsr.targetX,vsr.targetY);
+			vsr.inverseNewtonWithInitialGuess();
 			//vsr.inverseNewton(vsr.targetX,vsr.targetY,0,0);
 		}
 		catch(Exception e){e.printStackTrace();}
@@ -60,12 +59,12 @@ public class VisualServoRobot {
 	public void getInitialPosition()
 	{
 		System.out.println("Getting initial points");
-		x=tracker.x;
-		y=tracker.y;
-		targetX=tracker.targetx;
-		targetY=tracker.targety;
-		maxLocalPoints = (int)(Math.hypot(targetX-x, targetY-y)/30) + 1;
-		alpha = 1/(5*maxLocalPoints);
+//		x=tracker.x;
+//		y=tracker.y;
+//		targetX=tracker.targetx;
+//		targetY=tracker.targety;
+		//maxLocalPoints = (int)(Math.hypot(targetX-x, targetY-y)/30) + 1;
+		//alpha = 1/(5*maxLocalPoints);
 		System.err.println("Creating "+maxLocalPoints+" local targets");
 	}
 	
@@ -87,14 +86,14 @@ public class VisualServoRobot {
 		System.out.println(mdf.get(1, 0)+" "+mdf.get(1, 1)+"]");
 	}
 	
-	public void inverseNewtonWithInitialGuess(double posX,double posY){
+	public void inverseNewtonWithInitialGuess(){
 		double[] dA = {0.,0.};
-		double difX=(posX-x)/maxLocalPoints;
-		double difY=(posY-y)/maxLocalPoints;
+		double difX=(tracker.targetx-tracker.x)/maxLocalPoints;
+		double difY=(tracker.targety-tracker.y)/maxLocalPoints;
 		
 		for (int n=1;n<maxLocalPoints+1;n++){
 			System.err.println("LOCAL POINT: "+n+" out of "+(int)maxLocalPoints);
-			dA=inverseNewton(difX*n+x,difY*n+y,dA[0],dA[1], n);
+			dA=inverseNewton();
 			if(!tracker.isConnected) //tracker is disconnected or lost
 				break;
 		}
@@ -108,12 +107,13 @@ public class VisualServoRobot {
 	}
 	
 	// desired position (pixels), current angles.
-	public double[] inverseNewton(double posX, double posY, double a1, double a2, int iteration){
+	public double[] inverseNewton(){
+		double a1,a2,a3;
 		
 		double[][] f= new double[][]{{tracker.x},{tracker.y}};
-		double[][] dx = new double[][]{{a1},{a2}};
+		double[][] dx = new double[][]{{0},{0}};
 		double[][] dy = new double[][]{{0},{0}};
-		double[][] y = new double[][]{{posX},{posY}};
+		double[][] y = new double[][]{{tracker.targetx},{tracker.targety}};
 		Matrix mdx = new Matrix(dx); //dQ
 		Matrix mdy = new Matrix(dy); //dS
 		Matrix my = new Matrix(y);
@@ -121,6 +121,18 @@ public class VisualServoRobot {
 		error = Double.MAX_VALUE;
 		int n=1;
 		while(error>minError){
+			double dist = Math.hypot(tracker.x-tracker.targetx, tracker.y-tracker.targety);
+			
+			gain = 1.-(dist/500);
+			if(gain>1)
+				gain=1;
+			else if(gain<0.1)
+				gain=0.1;
+			//alpha = gain;
+			System.out.println("Alpha:"+alpha);
+			y = new double[][]{{tracker.targetx},{tracker.targety}};
+			my = new Matrix(y);
+			
 			double oldX=f[0][0];
 			double oldY=f[1][0];
 			
@@ -128,10 +140,20 @@ public class VisualServoRobot {
 			Matrix minv = mdf.inverse();
 			Matrix merr = my.minus(mf); //this is error
 			Matrix minverr = minv.times(merr);
-			mdx = minverr.times(gain);
 			
+			
+			mdx = minverr.times(gain);
 			a1=mdx.get(0, 0);
 			a2=mdx.get(1, 0);
+			
+			double angle = Math.hypot(a1,a2);
+			if(angle>10){
+				mdx = minverr.times(10/angle);
+				a1=mdx.get(0, 0);
+				a2=mdx.get(1, 0);
+			}
+				
+			System.out.println("Angle:" +angle);
 			robot.rotateMotorA((int)a1);
 			robot.rotateMotorB((int)a2);
 			try
@@ -154,7 +176,7 @@ public class VisualServoRobot {
 			Matrix mdJac = mDivision.times(alpha);
 			mdf.plusEquals(mdJac); //here update the jacobian....
 			
-			error = Math.hypot(tracker.x-posX, tracker.y-posY);
+			error = Math.hypot(tracker.x-tracker.targetx, tracker.y-tracker.targety);
 			System.out.println("Error "+ error);
 			System.out.println("["+mdf.get(0, 0)+" "+mdf.get(0, 1));
 			System.out.println(mdf.get(1, 0)+" "+mdf.get(1, 1)+"]");
