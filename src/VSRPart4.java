@@ -109,6 +109,8 @@ public class VSRPart4
 				// Go to the midpoint between the obstacle and the base 
 				targetX = (tracker.basex + tracker.obstx) / 2;
 				targetY = (tracker.basey + tracker.obsty) / 2;
+				targetX = (targetX + tracker.obstx) / 2;
+				targetY = (targetY + tracker.obsty) / 2;
 			}
 			else
 			{
